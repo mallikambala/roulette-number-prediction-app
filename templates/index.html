@@ -1,0 +1,445 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Malli's Number Predictor</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <!-- Include Chart.js for visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+
+<div id="app-wrapper">
+    <div class="header-row">
+        <h2 class="app-title">🎯 Malli's Number Predictor</h2>
+        
+        <!-- NAVIGATION TABS -->
+        <div class="tabs-container">
+            <button class="tab-btn active" data-target="tab-calculator" onclick="window.App.openTab('tab-calculator')">🧮 Number Predictor</button>
+            <button class="tab-btn" data-target="tab-analytics" onclick="window.App.openTab('tab-analytics')">📈 Visual Analytics</button>
+        </div>
+    </div>
+
+    <!-- TAB 1: CALCULATOR & TABLE -->
+    <div id="tab-calculator" class="tab-content active-tab">
+        <div class="main-section">
+            <section class="left-section">
+                <h3>Select Roulette Number:</h3>
+                <div class="roulette-layout">
+                    <div class="zero">
+                        <button type="button" class="green" data-number="0">0</button>
+                    </div>
+                    <div class="grid">
+                        {% for r in roulette_numbers if r.num != 0 %}
+                            <button type="button" class="{{ r.color }}" data-number="{{ r.num }}">{{ r.num }}</button>
+                        {% endfor %}
+                    </div>
+                </div>
+                
+                <div class="action-buttons">
+                    <button type="button" class="action-btn reset-btn" onclick="window.App.reset()">Reset All</button>
+                    <button type="button" class="action-btn undo-btn" onclick="window.App.undo()">Undo Last</button>
+                </div>
+            </section>
+
+            <section class="right-section" id="right-section-container">
+                <!-- Active Predictions rendered via JS -->
+            </section>
+        </div>
+
+        <section id="table-wrapper">
+            <!-- History Table rendered via JS -->
+        </section>
+    </div>
+
+    <!-- TAB 2: VISUAL ANALYTICS -->
+    <div id="tab-analytics" class="tab-content">
+        <div class="analytics-card">
+            <h3>📈 Prediction Hits Trend & Streak Tracker</h3>
+            <div id="chart-wrapper" class="chart-wrapper">
+                <canvas id="plChart"></canvas>
+            </div>
+            <div id="chart-empty-state" class="summary-box empty-state" style="margin-top: 20px; display:none;">
+                <p><b>Not enough data!</b></p>
+                <p class="context-line reason-neutral">Process at least 1 bet to generate the analytics chart.</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script id="initial-state" type="application/json">
+    { "history": {{ initial_history | tojson | safe }} }
+</script>
+
+<script>
+    (function() {
+        const App = {
+            history: [],
+            chartInstance: null,
+            isProcessing: false, 
+
+            init(initialState) {
+                this.history = initialState.history || [];
+                this.bindEvents();
+                this.render();
+            },
+
+            bindEvents() {
+                document.querySelectorAll('.roulette-layout button').forEach(btn => {
+                    btn.addEventListener('click', (e) => this.handleSpin(e.currentTarget.dataset.number));
+                });
+            },
+
+            async sendRequest(action, data = {}) {
+                if (this.isProcessing) return; 
+                this.isProcessing = true;
+                const formData = new FormData();
+                formData.append('action', action);
+                for (const key in data) formData.append(key, data[key]);
+
+                try {
+                    const response = await fetch('/process_click', { method: 'POST', body: formData });
+                    if (!response.ok) throw new Error('Network error');
+                    const state = await response.json();
+                    this.history = state.history;
+                    this.render();
+                } catch (error) {
+                    console.error('Fetch error:', error);
+                } finally {
+                    this.isProcessing = false;
+                }
+            },
+
+            handleSpin(number) { this.sendRequest('spin', { number }); },
+            undo() { this.sendRequest('undo'); },
+            reset() { if (confirm('Clear all data?')) this.sendRequest('reset'); },
+
+            openTab(tabId) {
+                document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active-tab'));
+                document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
+                
+                document.getElementById(tabId).classList.add('active-tab');
+                document.querySelector(`.tab-btn[data-target="${tabId}"]`).classList.add('active');
+
+                if (tabId === 'tab-analytics') {
+                    this.renderChart();
+                }
+            },
+
+            render() {
+                this.renderSummary();
+                this.renderTable();
+                if (document.querySelector('#tab-analytics.active-tab')) {
+                    this.renderChart();
+                }
+            },
+
+            renderSummary() {
+                const container = document.getElementById('right-section-container');
+                document.querySelectorAll('.last-spun-highlight').forEach(el => el.classList.remove('last-spun-highlight'));
+
+                if (this.history.length === 0) {
+                    container.innerHTML = `<div class="summary-box empty-state"><p><b>Awaiting Data...</b></p><p>Click a number to generate predictions.</p></div>`;
+                    return;
+                }
+
+                const latest = this.history[this.history.length - 1];
+                const lastSpunBtn = document.querySelector(`.roulette-layout button[data-number="${latest.number}"]`);
+                if (lastSpunBtn) lastSpunBtn.classList.add('last-spun-highlight');
+
+                const stats = this.calculatePredictionStats();
+                
+                let predBoxHtml = '';
+                if (latest.predicted_numbers) {
+                    // Calculate Remaining Numbers (Excluding 0)
+                    const allNumbersExcludingZero = Array.from({length: 36}, (_, i) => i + 1);
+                    const remainingNumbers = allNumbersExcludingZero.filter(n => !latest.predicted_numbers.includes(n));
+
+                    predBoxHtml = `
+                        <div class="prediction-box ${stats.curr_miss_streak >= 3 ? 'prediction-box-danger' : ''}">
+                            <p class="next-bet-title"><b>🎯 Next Spin Target (17 Numbers)</b></p>
+                            <div class="prediction-grid">
+                                ${latest.predicted_numbers.map(n => `<span class="pred-num">${n}</span>`).join('')}
+                            </div>
+                            <div class="pred-stats">
+                                <span>✅ Hits: <b>${stats.hits}</b></span>
+                                <span>❌ Misses: <b>${stats.misses}</b></span>
+                                <span>📊 Strike Rate: <b>${stats.rate}%</b></span>
+                            </div>
+                            <div class="pred-stats max-stats">
+                                <span class="max-hit">🔥 Max Hit Streak: <b>${stats.max_hit_streak}</b></span>
+                                <span class="max-miss">🧊 Max Miss Streak: <b>${stats.max_miss_streak}</b></span>
+                            </div>
+                            
+                            <details class="remaining-details">
+                                <summary>▶ Show Remaining Numbers (${remainingNumbers.length})</summary>
+                                <div class="prediction-grid" style="margin-top: 8px;">
+                                    ${remainingNumbers.map(n => `<span class="pred-num unselected-num">${n}</span>`).join('')}
+                                </div>
+                            </details>
+                        </div>`;
+                }
+
+                container.innerHTML = `
+                    <div class="summary-box">
+                        <p style="font-size: 1.1em; margin-bottom: 8px;"><b>Total Rounds:</b> ${this.history.length}</p>
+                        ${predBoxHtml}
+                    </div>`;
+            },
+
+            renderTable() {
+                const wrapper = document.getElementById('table-wrapper');
+                if (this.history.length < 2) { wrapper.innerHTML = ''; return; }
+
+                let rowsArray = [];
+                for (let i = 1; i < this.history.length; i++) {
+                    const prev = this.history[i - 1];
+                    const curr = this.history[i];
+                    
+                    let predHtml = "<span class='small-preds'>-</span>";
+                    let remainingHtml = "<span class='small-preds'>-</span>";
+                    let outcomeHtml = "➖";
+                    let tempMissStreak = 0;
+
+                    for (let j = 1; j <= i; j++) {
+                        const tPrev = this.history[j-1];
+                        const tCurr = this.history[j];
+                        if (tPrev.predicted_numbers) {
+                            if (tPrev.predicted_numbers.some(n => Number(n) === Number(tCurr.number))) {
+                                tempMissStreak = 0;
+                            } else {
+                                tempMissStreak++;
+                            }
+                        }
+                    }
+
+                    if (prev.predicted_numbers) {
+                        const isHit = prev.predicted_numbers.some(n => Number(n) === Number(curr.number));
+                        outcomeHtml = isHit ? `<span class="win">✅ HIT</span>` : `<span class="loss">❌ MISS</span>`;
+                        
+                        const formattedNums = prev.predicted_numbers.map(n => 
+                            Number(n) === Number(curr.number) ? `<span class='pred-hit'>${n}</span>` : n
+                        ).join(', ');
+                        
+                        // Setup the main predictions column
+                        predHtml = `<div class='small-preds'>${formattedNums}</div>`;
+                        if (tempMissStreak >= 3) {
+                            predHtml += `<span class='miss-warning'>⚠️ Miss Streak ${tempMissStreak}!</span>`;
+                        }
+
+                        // Calculate and Setup the new Remaining Numbers column
+                        const allNumbersExcludingZero = Array.from({length: 36}, (_, idx) => idx + 1);
+                        const remainingNums = allNumbersExcludingZero.filter(n => !prev.predicted_numbers.includes(n));
+                        
+                        const formattedRemaining = remainingNums.map(n => 
+                            Number(n) === Number(curr.number) ? `<span class='pred-hit' style='background-color:#e74c3c;'>${n}</span>` : n
+                        ).join(', ');
+
+                        remainingHtml = `
+                            <details style="font-size: 0.9em; color: #7f8c8d; text-align: center;">
+                                <summary style="cursor: pointer; outline: none; font-weight: bold;">▶ Show (${remainingNums.length})</summary>
+                                <div class='small-preds' style='margin-top: 4px; color: #95a5a6;'>${formattedRemaining}</div>
+                            </details>
+                        `;
+                    }
+                    
+                    let predTdClass = tempMissStreak >= 3 ? 'warning-cell' : '';
+
+                    rowsArray.push(`
+                        <tr>
+                            <td><span class='sno'>${i}</span></td>
+                            <td>${prev.number} → <b>${curr.number}</b></td>
+                            <td class="${predTdClass}">${predHtml}</td>
+                            <td>${remainingHtml}</td>
+                            <td>${outcomeHtml}</td>
+                            <td>
+                                <form method="post" action="/recalc/${i}">
+                                    <button type="submit" class="action-btn recalc-btn" title="Recalculate flow from here">🔄</button>
+                                </form>
+                            </td>
+                        </tr>
+                    `);
+                }
+
+                wrapper.innerHTML = `
+                    <section class="table-container">
+                        <h3>Prediction History Log</h3>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Round</th>
+                                    <th>Spin Result</th>
+                                    <th>Algorithm Predictions</th>
+                                    <th>Remaining Numbers</th>
+                                    <th>Outcome</th>
+                                    <th>Recalc</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rowsArray.reverse().join('')}</tbody>
+                        </table>
+                    </section>`;
+            },
+
+            calculatePredictionStats() {
+                let hits = 0, misses = 0, currHit = 0, currMiss = 0, maxHit = 0, maxMiss = 0;
+                if (this.history.length > 1) {
+                    for (let i = 1; i < this.history.length; i++) {
+                        const prev = this.history[i - 1];
+                        const curr = this.history[i];
+                        if (prev.predicted_numbers) {
+                            if (prev.predicted_numbers.some(n => Number(n) === Number(curr.number))) {
+                                hits++; currHit++; currMiss = 0;
+                            } else {
+                                misses++; currMiss++; currHit = 0;
+                            }
+                            maxHit = Math.max(maxHit, currHit);
+                            maxMiss = Math.max(maxMiss, currMiss);
+                        }
+                    }
+                }
+                const total = hits + misses;
+                const rate = total > 0 ? ((hits / total) * 100).toFixed(1) : 0;
+                return { hits, misses, rate, curr_miss_streak: currMiss, max_hit_streak: maxHit, max_miss_streak: maxMiss };
+            },
+
+            renderChart() {
+                const chartWrapper = document.getElementById('chart-wrapper');
+                const emptyState = document.getElementById('chart-empty-state');
+
+                if (this.history.length < 2) {
+                    if(chartWrapper) chartWrapper.style.display = 'none';
+                    if(emptyState) emptyState.style.display = 'block';
+                    return;
+                }
+                
+                if(chartWrapper) chartWrapper.style.display = 'block';
+                if(emptyState) emptyState.style.display = 'none';
+
+                const ctx = document.getElementById('plChart').getContext('2d');
+                
+                const labels = ['Start'];
+                const cumulativeHits = [0];
+                const pointBgColors = ['#95a5a6']; 
+                const pointRadii = [5];
+                const pointStyles = ['circle'];
+
+                let runningHits = 0;
+                let tempMissStreak = 0;
+
+                for (let i = 1; i < this.history.length; i++) {
+                    labels.push(`Round ${i}`);
+                    
+                    const prev = this.history[i - 1];
+                    const curr = this.history[i];
+                    
+                    let isHit = false;
+                    if (prev.predicted_numbers) {
+                        isHit = prev.predicted_numbers.some(n => Number(n) === Number(curr.number));
+                    }
+
+                    if (isHit) {
+                        runningHits++;
+                        tempMissStreak = 0;
+                        pointBgColors.push('#2ecc71'); 
+                    } else {
+                        tempMissStreak++;
+                        pointBgColors.push('#e74c3c'); 
+                    }
+                    
+                    cumulativeHits.push(runningHits);
+
+                    if (tempMissStreak >= 3) {
+                        pointRadii.push(10);
+                        pointStyles.push('rectRot'); 
+                    } else {
+                        pointRadii.push(5);
+                        pointStyles.push('circle');
+                    }
+                }
+
+                if (this.chartInstance) {
+                    this.chartInstance.destroy();
+                }
+
+                this.chartInstance = new Chart(ctx, {
+                    type: 'line',
+                    data: {
+                        labels: labels,
+                        datasets: [{
+                            label: 'Total Successful Hits',
+                            data: cumulativeHits,
+                            borderColor: '#bdc3c7',
+                            borderWidth: 2,
+                            pointBackgroundColor: pointBgColors,
+                            pointBorderColor: '#ffffff',
+                            pointBorderWidth: 1.5,
+                            pointRadius: pointRadii,
+                            pointHoverRadius: 12,
+                            pointStyle: pointStyles,
+                            fill: false,
+                            tension: 0.1
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: false,
+                        plugins: { 
+                            legend: { display: false },
+                            tooltip: {
+                                callbacks: {
+                                    afterLabel: function(context) {
+                                        if (context.dataIndex === 0) return ["Start of Session"];
+                                        
+                                        const prev = App.history[context.dataIndex - 1];
+                                        const curr = App.history[context.dataIndex];
+                                        
+                                        let isHit = false;
+                                        if (prev && prev.predicted_numbers) {
+                                            isHit = prev.predicted_numbers.some(n => Number(n) === Number(curr.number));
+                                        }
+                                        
+                                        let tooltipLines = [`Result: ${isHit ? '🎯 HIT' : '❌ MISS'}`];
+                                        
+                                        let tempStreak = 0;
+                                        for (let j = 1; j <= context.dataIndex; j++) {
+                                            let p = App.history[j-1];
+                                            let c = App.history[j];
+                                            if (p.predicted_numbers) {
+                                                if (p.predicted_numbers.some(n => Number(n) === Number(c.number))) {
+                                                    tempStreak = 0;
+                                                } else {
+                                                    tempStreak++;
+                                                }
+                                            }
+                                        }
+                                        
+                                        if (tempStreak >= 3) {
+                                            tooltipLines.push(`⚠️ Miss Streak ${tempStreak}!`);
+                                        }
+                                        return tooltipLines;
+                                    }
+                                }
+                            }
+                        },
+                        scales: { 
+                            y: { 
+                                type: 'linear', 
+                                display: true, 
+                                title: { display: true, text: 'Cumulative Number of Hits' },
+                                ticks: { stepSize: 1 } 
+                            } 
+                        }
+                    }
+                });
+            }
+        };
+
+        window.App = App;
+        const stateText = document.getElementById('initial-state').textContent;
+        const initialState = JSON.parse(stateText || '{}');
+        App.init(initialState);
+    })();
+</script>
+
+</body>
+</html>

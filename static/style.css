@@ -1,0 +1,151 @@
+:root {
+  --btn-size: 42px;
+  --btn-font: 0.9em;
+  --gap: 4px;
+  --primary-red: #d32f2f;
+  --primary-black: #212121;
+  --primary-green: #388e3c;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+  margin: 20px;
+  background-color: #f4f4f9;
+  color: #333;
+}
+
+h2, h3 { margin-bottom: 10px; color: #2c3e50; }
+
+.main-section { display: flex; gap: 35px; align-items: flex-start; }
+.roulette-layout { display: flex; align-items: flex-start; margin-bottom: 15px; }
+.zero { margin-right: 8px; }
+.grid { display: grid; grid-template-columns: repeat(12, 1fr); gap: var(--gap); }
+
+button {
+  cursor: pointer; width: var(--btn-size); height: var(--btn-size);
+  border-radius: 5px; border: none; font-weight: bold; font-size: var(--btn-font);
+  color: white; transition: transform 0.1s, box-shadow 0.2s;
+}
+button:active { transform: scale(0.95); }
+
+.red { background-color: var(--primary-red); }
+.black { background-color: var(--primary-black); }
+.green { background-color: var(--primary-green); }
+
+.action-buttons { display: flex; gap: 8px; }
+.action-btn {
+  width: auto !important; height: auto !important; padding: 10px 16px; border-radius: 5px;
+  font-weight: bold; font-size: 0.9em;
+}
+.reset-btn { background-color: #f44336; color: white; }
+.undo-btn { background-color: #2196f3; color: white; }
+
+.right-section { flex: 1; max-width: 500px; display: flex; flex-direction: column; }
+.summary-box {
+  width: 100%; padding: 15px; border-radius: 8px; background: #fff;
+  border: 1px solid #ddd; box-shadow: 0 2px 6px rgba(0,0,0,.06);
+}
+
+.prediction-box {
+  margin-top: 10px; background-color: #f8f9fa; padding: 10px;
+  border-radius: 6px; border: 1px solid #e0e0e0;
+}
+.prediction-box-danger {
+  border: 2px solid #d32f2f !important; background-color: #fceae9 !important;
+  animation: dangerPulse 1.5s infinite;
+}
+@keyframes dangerPulse {
+  0% { box-shadow: 0 0 0 0 rgba(211, 47, 47, 0.4); }
+  70% { box-shadow: 0 0 0 8px rgba(211, 47, 47, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(211, 47, 47, 0); }
+}
+
+.next-bet-title {
+  background-color: #eaf2f8; border-left: 4px solid #3498db; 
+  padding: 8px 12px; margin: 0 0 12px 0; border-radius: 0 4px 4px 0;
+}
+
+.prediction-grid {
+  display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-bottom: 12px;
+}
+.pred-num {
+  background: #2c3e50; color: white; padding: 6px 10px; border-radius: 6px;
+  font-weight: bold; min-width: 24px; text-align: center;
+}
+
+.pred-stats {
+  margin-top: 15px; padding-top: 10px; border-top: 1px dashed #ddd;
+  font-size: 0.9em; display: flex; justify-content: space-between; gap: 10px;
+}
+.pred-stats span {
+  background: #f1f2f6; padding: 4px 10px; border-radius: 4px; font-weight: 500; border: 1px solid #e1e2e6;
+}
+.max-stats { border-top: none; margin-top: 6px; justify-content: flex-start; }
+.max-hit { background-color: #fdf2e9 !important; color: #e67e22 !important; border: 1px solid #f5cba7 !important; }
+.max-miss { background-color: #ebf5fb !important; color: #2980b9 !important; border: 1px solid #aed6f1 !important; }
+
+.last-spun-highlight {
+  transform: scale(1.15) !important;
+  box-shadow: 0 0 15px 5px rgba(241, 196, 15, 0.9) !important;
+  border: 1.5px solid #f1c40f !important; z-index: 10; position: relative;
+}
+
+.table-container {
+  width: 100%; max-width: 1000px; margin-top: 25px; max-height: 450px;
+  overflow-y: auto; border: 1px solid #ddd; border-radius: 8px; background: #fff;
+}
+table { border-collapse: collapse; width: 100%; font-size: 0.95em; }
+th, td { padding: 8px 12px; text-align: center; border-bottom: 1px solid #eee; border-right: 1px solid #eee; }
+th { background-color: #f8f9fa; position: sticky; top: 0; border-bottom: 2px solid #ddd; }
+tbody tr:hover { background-color: #f1f5f9; }
+
+.small-preds { font-size: 0.75em; color: #666; max-width: 250px; white-space: normal; margin: 0 auto; line-height: 1.4; }
+.pred-hit { background-color: var(--primary-green); color: white; padding: 0px 4px; border-radius: 3px; font-weight: bold; }
+.miss-warning { color: #d32f2f; font-weight: bold; font-size: 0.85em; display: block; margin-top: 4px; }
+.warning-cell { background-color: #ffe0e0 !important; animation: cellPulse 1.5s infinite; }
+@keyframes cellPulse { 0% { background-color: #ffe0e0; } 50% { background-color: #ffcccc; } 100% { background-color: #ffe0e0; } }
+
+.win { color: #2e7d32; font-weight: bold; }
+.loss { color: #c62828; font-weight: bold; }
+.recalc-btn { background-color: #ff9800; color: white; padding: 2px 6px; border-radius: 3px; font-size: 0.8em; }
+
+/* --- NEW STYLES: TABS & GRAPH --- */
+.header-row {
+  display: flex; align-items: flex-end; gap: 30px;
+  border-bottom: 2px solid #ddd; margin-bottom: 20px;
+}
+.app-title { margin: 0; margin-bottom: 8px; color: #2c3e50; white-space: nowrap; }
+
+.tabs-container { display: flex; gap: 8px; }
+.tab-btn {
+  width: auto !important; height: auto !important; display: flex; align-items: center; gap: 6px;
+  white-space: nowrap; background: none; border: none; color: #7f8c8d; font-size: 1.0em;
+  font-weight: bold; padding: 10px 16px; cursor: pointer; transition: all 0.2s ease;
+  border-bottom: 3px solid transparent; margin-bottom: -2px; 
+}
+.tab-btn:hover { color: #34495e; background-color: rgba(0,0,0,0.03); border-radius: 6px 6px 0 0; }
+.tab-btn.active { color: #2196f3; border-bottom: 3px solid #2196f3; }
+
+.tab-content { display: none; animation: fadeIn 0.3s; }
+.active-tab { display: block; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+.analytics-card {
+  background: #ffffff; border: 1px solid #ddd; border-radius: 8px;
+  padding: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.05); margin-bottom: 20px;
+}
+.analytics-card h3 { margin-top: 0; border-bottom: 1px solid #eee; padding-bottom: 10px; margin-bottom: 15px; }
+.chart-wrapper { position: relative; height: 450px; width: 100%; }
+
+/* --- STYLES: REMAINING NUMBERS DROPDOWN --- */
+.remaining-details {
+  margin-top: 12px; border-top: 1px dashed #ccc; padding-top: 8px;
+}
+.remaining-details summary {
+  font-size: 0.85em; color: #7f8c8d; cursor: pointer; font-weight: bold; outline: none; transition: color 0.2s;
+}
+.remaining-details summary:hover { color: #2c3e50; }
+.unselected-num {
+  background: #ecf0f1; color: #95a5a6; border: 1px dashed #bdc3c7; box-shadow: none; padding: 4px 8px; font-size: 0.85em;
+}
+.unselected-num:hover { transform: none; background: #e2e6e8; }
