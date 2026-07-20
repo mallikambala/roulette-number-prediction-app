@@ -13,7 +13,7 @@ class NumberPredictor:
 
     def get_dozen(self, number):
         if number == 0:
-            return 0 # 0 acts as a loss and defaults to Dozen 1 logic next
+            return 0
         elif 1 <= number <= 12: return 1
         elif 13 <= number <= 24: return 2
         elif 25 <= number <= 36: return 3
@@ -23,7 +23,7 @@ class NumberPredictor:
         if dozen is None: return None
         if self.mode == "Normal":
             return [1, 2] if dozen == 1 else [2, 3] if dozen == 2 else [3, 1]
-        else:  # Recovery Mode logic used for number variance
+        else:  # Recovery Mode
             return [1, 3] if dozen == 1 else [2, 1] if dozen == 2 else [3, 2]
 
     def _generate_predictions(self, target_dozens):
@@ -36,7 +36,6 @@ class NumberPredictor:
             1: list(range(1, 13)), 2: list(range(13, 25)), 3: list(range(25, 37))
         }
         
-        # Deterministic seed locking based on spin history
         seed_val = "seed_" + "_".join(str(n) for n in self.past_spins)
         random.seed(seed_val)
 
@@ -44,7 +43,7 @@ class NumberPredictor:
         pick2 = random.sample(dozen_ranges[d2], 7)
         pick3 = random.sample(dozen_ranges[remaining_dozen], 3)
         
-        random.seed() # Reset
+        random.seed()
         return sorted(pick1 + pick2 + pick3)
 
     def process_number(self, number):
@@ -58,11 +57,12 @@ class NumberPredictor:
                 "number": number,
                 "dozen": dozen,
                 "predicted_numbers": self._generate_predictions(rec_dozens),
+                "next_bet": rec_dozens,  # BUG FIX: Added this line
+                "next_mode": self.mode   # BUG FIX: Added this line
             }
 
         rec_dozens = self.get_recommended_dozens(self.last_dozen)
 
-        # Update Engine Mode purely for algorithmic variance (No money involved)
         if dozen != 0 and (dozen in rec_dozens):
             if self.last_dozen == dozen:
                 self.mode = "Normal"
@@ -77,6 +77,8 @@ class NumberPredictor:
             "number": number,
             "dozen": dozen,
             "predicted_numbers": self._generate_predictions(next_rec_dozens),
+            "next_bet": next_rec_dozens,
+            "next_mode": self.mode
         }
 
 roulette_numbers = [

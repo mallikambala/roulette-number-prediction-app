@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <title>Malli's Number Predictor</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
-    <!-- Include Chart.js for visualization -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
@@ -13,7 +12,6 @@
     <div class="header-row">
         <h2 class="app-title">🎯 Malli's Number Predictor</h2>
         
-        <!-- NAVIGATION TABS -->
         <div class="tabs-container">
             <button class="tab-btn active" data-target="tab-calculator" onclick="window.App.openTab('tab-calculator')">🧮 Number Predictor</button>
             <button class="tab-btn" data-target="tab-analytics" onclick="window.App.openTab('tab-analytics')">📈 Visual Analytics</button>
@@ -42,14 +40,10 @@
                 </div>
             </section>
 
-            <section class="right-section" id="right-section-container">
-                <!-- Active Predictions rendered via JS -->
-            </section>
+            <section class="right-section" id="right-section-container"></section>
         </div>
 
-        <section id="table-wrapper">
-            <!-- History Table rendered via JS -->
-        </section>
+        <section id="table-wrapper"></section>
     </div>
 
     <!-- TAB 2: VISUAL ANALYTICS -->
@@ -117,21 +111,15 @@
             openTab(tabId) {
                 document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active-tab'));
                 document.querySelectorAll('.tab-btn').forEach(el => el.classList.remove('active'));
-                
                 document.getElementById(tabId).classList.add('active-tab');
                 document.querySelector(`.tab-btn[data-target="${tabId}"]`).classList.add('active');
-
-                if (tabId === 'tab-analytics') {
-                    this.renderChart();
-                }
+                if (tabId === 'tab-analytics') this.renderChart();
             },
 
             render() {
                 this.renderSummary();
                 this.renderTable();
-                if (document.querySelector('#tab-analytics.active-tab')) {
-                    this.renderChart();
-                }
+                if (document.querySelector('#tab-analytics.active-tab')) this.renderChart();
             },
 
             renderSummary() {
@@ -139,7 +127,7 @@
                 document.querySelectorAll('.last-spun-highlight').forEach(el => el.classList.remove('last-spun-highlight'));
 
                 if (this.history.length === 0) {
-                    container.innerHTML = `<div class="summary-box empty-state"><p><b>Awaiting Data...</b></p><p>Click a number to generate predictions.</p></div>`;
+                    container.innerHTML = `<div class="summary-box empty-state"><p style="margin:0;"><b>Awaiting Data...</b></p><p style="margin:4px 0 0 0; font-size:0.9em; color:#666;">Click a number to generate predictions.</p></div>`;
                     return;
                 }
 
@@ -151,30 +139,70 @@
                 
                 let predBoxHtml = '';
                 if (latest.predicted_numbers) {
-                    // Calculate Remaining Numbers (Excluding 0)
+                    const pd1 = latest.predicted_numbers.filter(n => n >= 1 && n <= 12);
+                    const pd2 = latest.predicted_numbers.filter(n => n >= 13 && n <= 24);
+                    const pd3 = latest.predicted_numbers.filter(n => n >= 25 && n <= 36);
+                    
+                    const targetDozens = latest.next_bet || [];
+
+                    const renderDozenRow = (label, nums, isTarget) => {
+                        if(nums.length === 0) return '';
+                        const chipColor = isTarget ? '' : 'background-color: #95a5a6; border-color: #7f8c8d;';
+                        return `
+                            <div style="display:flex; align-items:center; gap:6px; margin-bottom:4px;">
+                                <span style="font-weight:bold; color:${isTarget ? '#2c3e50' : '#95a5a6'}; min-width:20px; font-size:0.85em;">${label}</span>
+                                <div class="prediction-grid" style="margin:0; justify-content:flex-start;">
+                                    ${nums.map(n => `<span class="pred-num" style="${chipColor}">${n}</span>`).join('')}
+                                </div>
+                            </div>
+                        `;
+                    };
+
                     const allNumbersExcludingZero = Array.from({length: 36}, (_, i) => i + 1);
                     const remainingNumbers = allNumbersExcludingZero.filter(n => !latest.predicted_numbers.includes(n));
+                    
+                    const rd1 = remainingNumbers.filter(n => n >= 1 && n <= 12);
+                    const rd2 = remainingNumbers.filter(n => n >= 13 && n <= 24);
+                    const rd3 = remainingNumbers.filter(n => n >= 25 && n <= 36);
+
+                    const renderRemainingRow = (label, nums) => {
+                        if(nums.length === 0) return '';
+                        return `
+                            <div style="display:flex; align-items:center; gap:6px; margin-bottom:2px;">
+                                <span style="font-weight:bold; color:#7f8c8d; min-width:20px; font-size:0.8em;">${label}</span>
+                                <div class="prediction-grid" style="margin:0; justify-content:flex-start;">
+                                    ${nums.map(n => `<span class="pred-num unselected-num">${n}</span>`).join('')}
+                                </div>
+                            </div>
+                        `;
+                    };
 
                     predBoxHtml = `
                         <div class="prediction-box ${stats.curr_miss_streak >= 3 ? 'prediction-box-danger' : ''}">
-                            <p class="next-bet-title"><b>🎯 Next Spin Target (17 Numbers)</b></p>
-                            <div class="prediction-grid">
-                                ${latest.predicted_numbers.map(n => `<span class="pred-num">${n}</span>`).join('')}
+                            <p class="next-bet-title"><b>🎯 Targets:</b> D${targetDozens[0] || '?'} & D${targetDozens[1] || '?'} <span style="color:#1976d2; font-weight:bold;">(${latest.next_mode})</span></p>
+                            
+                            <div style="background: #ffffff; padding: 8px; border-radius: 4px; border: 1px solid #e1e2e6; margin-bottom: 6px;">
+                                ${renderDozenRow('D1', pd1, targetDozens.includes(1))}
+                                ${renderDozenRow('D2', pd2, targetDozens.includes(2))}
+                                ${renderDozenRow('D3', pd3, targetDozens.includes(3))}
                             </div>
+
                             <div class="pred-stats">
                                 <span>✅ Hits: <b>${stats.hits}</b></span>
                                 <span>❌ Misses: <b>${stats.misses}</b></span>
-                                <span>📊 Strike Rate: <b>${stats.rate}%</b></span>
+                                <span>📊 Rate: <b>${stats.rate}%</b></span>
                             </div>
                             <div class="pred-stats max-stats">
-                                <span class="max-hit">🔥 Max Hit Streak: <b>${stats.max_hit_streak}</b></span>
-                                <span class="max-miss">🧊 Max Miss Streak: <b>${stats.max_miss_streak}</b></span>
+                                <span class="max-hit">🔥 Max Hit: <b>${stats.max_hit_streak}</b></span>
+                                <span class="max-miss">🧊 Max Miss: <b>${stats.max_miss_streak}</b></span>
                             </div>
                             
                             <details class="remaining-details">
-                                <summary>▶ Show Remaining Numbers (${remainingNumbers.length})</summary>
-                                <div class="prediction-grid" style="margin-top: 8px;">
-                                    ${remainingNumbers.map(n => `<span class="pred-num unselected-num">${n}</span>`).join('')}
+                                <summary>▶ Remaining Numbers (${remainingNumbers.length})</summary>
+                                <div style="margin-top: 6px;">
+                                    ${renderRemainingRow('D1', rd1)}
+                                    ${renderRemainingRow('D2', rd2)}
+                                    ${renderRemainingRow('D3', rd3)}
                                 </div>
                             </details>
                         </div>`;
@@ -182,7 +210,7 @@
 
                 container.innerHTML = `
                     <div class="summary-box">
-                        <p style="font-size: 1.1em; margin-bottom: 8px;"><b>Total Rounds:</b> ${this.history.length}</p>
+                        <p style="font-size: 1em; margin: 0 0 6px 0;"><b>Total Rounds:</b> ${this.history.length}</p>
                         ${predBoxHtml}
                     </div>`;
             },
@@ -217,28 +245,40 @@
                         const isHit = prev.predicted_numbers.some(n => Number(n) === Number(curr.number));
                         outcomeHtml = isHit ? `<span class="win">✅ HIT</span>` : `<span class="loss">❌ MISS</span>`;
                         
-                        const formattedNums = prev.predicted_numbers.map(n => 
-                            Number(n) === Number(curr.number) ? `<span class='pred-hit'>${n}</span>` : n
-                        ).join(', ');
+                        const pd1 = prev.predicted_numbers.filter(n => n >= 1 && n <= 12);
+                        const pd2 = prev.predicted_numbers.filter(n => n >= 13 && n <= 24);
+                        const pd3 = prev.predicted_numbers.filter(n => n >= 25 && n <= 36);
                         
-                        // Setup the main predictions column
-                        predHtml = `<div class='small-preds'>${formattedNums}</div>`;
+                        const formatTableDozens = (nums) => nums.map(n => Number(n) === Number(curr.number) ? `<span class='pred-hit'>${n}</span>` : n).join(', ');
+                        
+                        let predGroups = [];
+                        if (pd1.length) predGroups.push(`<b>D1:</b> ${formatTableDozens(pd1)}`);
+                        if (pd2.length) predGroups.push(`<b>D2:</b> ${formatTableDozens(pd2)}`);
+                        if (pd3.length) predGroups.push(`<b>D3:</b> ${formatTableDozens(pd3)}`);
+
+                        predHtml = `<div class='small-preds' style='text-align: left;'>${predGroups.join('<br>')}</div>`;
                         if (tempMissStreak >= 3) {
                             predHtml += `<span class='miss-warning'>⚠️ Miss Streak ${tempMissStreak}!</span>`;
                         }
 
-                        // Calculate and Setup the new Remaining Numbers column
                         const allNumbersExcludingZero = Array.from({length: 36}, (_, idx) => idx + 1);
                         const remainingNums = allNumbersExcludingZero.filter(n => !prev.predicted_numbers.includes(n));
                         
-                        const formattedRemaining = remainingNums.map(n => 
-                            Number(n) === Number(curr.number) ? `<span class='pred-hit' style='background-color:#e74c3c;'>${n}</span>` : n
-                        ).join(', ');
+                        const rd1 = remainingNums.filter(n => n >= 1 && n <= 12);
+                        const rd2 = remainingNums.filter(n => n >= 13 && n <= 24);
+                        const rd3 = remainingNums.filter(n => n >= 25 && n <= 36);
+
+                        const formatRemTableDozens = (nums) => nums.map(n => Number(n) === Number(curr.number) ? `<span class='pred-hit' style='background-color:#e74c3c;'>${n}</span>` : n).join(', ');
+                        
+                        let remGroups = [];
+                        if (rd1.length) remGroups.push(`<b>D1:</b> ${formatRemTableDozens(rd1)}`);
+                        if (rd2.length) remGroups.push(`<b>D2:</b> ${formatRemTableDozens(rd2)}`);
+                        if (rd3.length) remGroups.push(`<b>D3:</b> ${formatRemTableDozens(rd3)}`);
 
                         remainingHtml = `
-                            <details style="font-size: 0.9em; color: #7f8c8d; text-align: center;">
-                                <summary style="cursor: pointer; outline: none; font-weight: bold;">▶ Show (${remainingNums.length})</summary>
-                                <div class='small-preds' style='margin-top: 4px; color: #95a5a6;'>${formattedRemaining}</div>
+                            <details style="font-size: 0.9em; color: #7f8c8d; text-align: left;">
+                                <summary style="cursor: pointer; outline: none; font-weight: bold; text-align: center;">▶ Show (${remainingNums.length})</summary>
+                                <div class='small-preds' style='margin-top: 4px; color: #95a5a6;'>${remGroups.join('<br>')}</div>
                             </details>
                         `;
                     }
