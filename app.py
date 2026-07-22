@@ -38,6 +38,7 @@ class NumberPredictor:
         
         seed_val = "seed_" + "_".join(str(n) for n in self.past_spins)
         random.seed(seed_val)
+
         pick1 = random.sample(dozen_ranges[d1], 7)
         pick2 = random.sample(dozen_ranges[d2], 7)
         pick3 = random.sample(dozen_ranges[remaining_dozen], 3)
@@ -59,7 +60,9 @@ class NumberPredictor:
                 "next_bet": rec_dozens,
                 "next_mode": self.mode
             }
+
         rec_dozens = self.get_recommended_dozens(self.last_dozen)
+
         if dozen != 0 and (dozen in rec_dozens):
             if self.last_dozen == dozen:
                 self.mode = "Normal"
@@ -69,6 +72,7 @@ class NumberPredictor:
             self.last_dozen = 1 if dozen == 0 else dozen
         
         next_rec_dozens = self.get_recommended_dozens(self.last_dozen)
+
         return {
             "number": number,
             "dozen": dozen,
@@ -104,11 +108,6 @@ def process_click():
         numbers.pop()
     elif action == "reset":
         numbers = []
-    elif action == "recalc":
-        # --- NEW: Deletes the past spins, keeps this round as the new Round 1 ---
-        start_row = int(request.form.get("start_row", 0))
-        if 0 < start_row <= len(numbers):
-            numbers = numbers[start_row-1:]
     
     session["numbers"] = numbers
     
