@@ -38,7 +38,6 @@ class NumberPredictor:
         
         seed_val = "seed_" + "_".join(str(n) for n in self.past_spins)
         random.seed(seed_val)
-
         pick1 = random.sample(dozen_ranges[d1], 7)
         pick2 = random.sample(dozen_ranges[d2], 7)
         pick3 = random.sample(dozen_ranges[remaining_dozen], 3)
@@ -57,12 +56,10 @@ class NumberPredictor:
                 "number": number,
                 "dozen": dozen,
                 "predicted_numbers": self._generate_predictions(rec_dozens),
-                "next_bet": rec_dozens,  # BUG FIX: Added this line
-                "next_mode": self.mode   # BUG FIX: Added this line
+                "next_bet": rec_dozens,
+                "next_mode": self.mode
             }
-
         rec_dozens = self.get_recommended_dozens(self.last_dozen)
-
         if dozen != 0 and (dozen in rec_dozens):
             if self.last_dozen == dozen:
                 self.mode = "Normal"
@@ -72,7 +69,6 @@ class NumberPredictor:
             self.last_dozen = 1 if dozen == 0 else dozen
         
         next_rec_dozens = self.get_recommended_dozens(self.last_dozen)
-
         return {
             "number": number,
             "dozen": dozen,
@@ -108,6 +104,11 @@ def process_click():
         numbers.pop()
     elif action == "reset":
         numbers = []
+    elif action == "recalc":
+        # --- NEW: Deletes the past spins, keeps this round as the new Round 1 ---
+        start_row = int(request.form.get("start_row", 0))
+        if 0 < start_row <= len(numbers):
+            numbers = numbers[start_row-1:]
     
     session["numbers"] = numbers
     
@@ -122,13 +123,6 @@ def index():
     engine = NumberPredictor()
     history = [engine.process_number(num) for num in numbers]
     return render_template("index.html", initial_history=history, roulette_numbers=roulette_numbers)
-
-@app.route("/recalc/<int:start_row>", methods=["POST"])
-def recalc(start_row):
-    numbers = session.get("numbers", [])
-    if 0 < start_row <= len(numbers):
-        session["numbers"] = numbers[start_row-1:]
-    return redirect(url_for("index"))
 
 if __name__ == "__main__":
     app.run(debug=True)
