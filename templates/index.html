@@ -104,6 +104,7 @@
                 if (tabId === 'tab-analytics') this.renderChart();
             },
             render() { this.renderSummary(); this.renderTable(); if (document.querySelector('#tab-analytics.active-tab')) this.renderChart(); },
+            
             renderSummary() {
                 const container = document.getElementById('right-section-container');
                 const leftStats = document.getElementById('left-stats-container');
@@ -126,21 +127,63 @@
                     };
 
                     predBoxHtml = `<div class="prediction-box"><p class="next-bet-title"><b>🎯 Targets:</b> D${targetDozens[0] || '?'} & D${targetDozens[1] || '?'} <span class="mode-tag">(${latest.next_mode})</span></p><div style="display: flex; flex-direction: column; gap: 8px; margin-top: 8px;"><div><p style="margin: 0 0 4px 0; font-size: 0.85em; color: #2c3e50;"><b>🤖 Algorithm Predictions</b></p><div style="background: #ffffff; padding: 8px; border-radius: 6px; border: 1px solid #e1e2e6;">${renderDozenRow('D1', latest.predicted_numbers.filter(n=>n>=1&&n<=12), targetDozens.includes(1))}${renderDozenRow('D2', latest.predicted_numbers.filter(n=>n>=13&&n<=24), targetDozens.includes(2))}${renderDozenRow('D3', latest.predicted_numbers.filter(n=>n>=25&&n<=36), targetDozens.includes(3))}</div></div><div><p style="margin: 0 0 4px 0; font-size: 0.85em; color: #2c3e50;"><b>⏳ Remaining Numbers</b></p><div style="background: #ffffff; padding: 8px; border-radius: 6px; border: 1px solid #e1e2e6;">${renderDozenRow('D1', remainingNumbers.filter(n=>n>=1&&n<=12), false, true)}${renderDozenRow('D2', remainingNumbers.filter(n=>n>=13&&n<=24), false, true)}${renderDozenRow('D3', remainingNumbers.filter(n=>n>=25&&n<=36), false, true)}</div></div></div></div>`;
-                        
-                    leftStatsHtml = `<div class="summary-box compact-left"><h3 style="margin-top: 0; border-bottom: 1px solid #eee;">📊 Performance Stats</h3><div style="margin-bottom: 10px;"><p style="color: #2c3e50;"><b>🤖 Algorithm Stats:</b></p><div class="pred-stats" style="margin-top: 0; padding-top: 0; border: none; justify-content: flex-start; flex-wrap: wrap;"><span>🎯 Hits: <b>${stats.alg.hits}</b></span><span>❌ Misses: <b>${stats.alg.misses}</b></span><span>📊 Rate: <b>${stats.alg.rate}%</b></span><span class="max-hit">🔥 Max Hit: <b>${stats.alg.maxHit}</b></span><span class="max-miss">🧊 Max Miss: <b>${stats.alg.maxMiss}</b></span></div></div><div style="border-top: 1px dashed #eee; padding-top: 8px;"><p style="color: #2c3e50;"><b>⚙️ Fixed 0-Close Stats:</b></p><div class="pred-stats" style="margin-top: 0; padding-top: 0; border: none; justify-content: flex-start; flex-wrap: wrap;"><span>🎯 Hits: <b>${stats.zc.hits}</b></span><span>❌ Misses: <b>${stats.zc.misses}</b></span><span>📊 Rate: <b>${stats.zc.rate}%</b></span><span class="max-hit">🔥 Max Hit: <b>${stats.zc.maxHit}</b></span><span class="max-miss">🧊 Max Miss: <b>${stats.zc.maxMiss}</b></span></div></div></div>`;
+                    
+                    leftStatsHtml = `<div class="summary-box compact-left"><h3 style="margin-top: 0; border-bottom: 1px solid #eee;">📊 Performance Stats</h3><div style="margin-bottom: 10px;"><p style="color: #2c3e50;"><b>🤖 Algorithm Stats:</b></p><div class="pred-stats" style="margin-top: 0; padding-top: 0; border: none; justify-content: flex-start; flex-wrap: wrap;"><span>🎯 Hits: <b>${stats.alg.hits}</b></span><span>❌ Misses: <b>${stats.alg.misses}</b></span><span>📊 Rate: <b>${stats.alg.rate}%</b></span><span class="max-hit">🔥 Max Hit: <b>${stats.alg.maxHit}</b></span><span class="max-miss">🧊 Max Miss: <b>${stats.alg.maxMiss}</b></span><span>💰 Paroli P/L: <b class="${stats.alg.units >= 0 ? 'win' : 'loss'}">${stats.alg.units > 0 ? '+' : ''}${stats.alg.units}u</b></span></div></div><div style="border-top: 1px dashed #eee; padding-top: 8px;"><p style="color: #2c3e50;"><b>⚙️ Fixed 0-Close Stats:</b></p><div class="pred-stats" style="margin-top: 0; padding-top: 0; border: none; justify-content: flex-start; flex-wrap: wrap;"><span>🎯 Hits: <b>${stats.zc.hits}</b></span><span>❌ Misses: <b>${stats.zc.misses}</b></span><span>📊 Rate: <b>${stats.zc.rate}%</b></span><span class="max-hit">🔥 Max Hit: <b>${stats.zc.maxHit}</b></span><span class="max-miss">🧊 Max Miss: <b>${stats.zc.maxMiss}</b></span><span>💰 Paroli P/L: <b class="${stats.zc.units >= 0 ? 'win' : 'loss'}">${stats.zc.units > 0 ? '+' : ''}${stats.zc.units}u</b></span></div></div></div>`;
                 }
 
                 container.innerHTML = `<div class="summary-box compact-right"><p style="font-size: 0.95em; margin: 0 0 6px 0;"><b>Total Rounds:</b> ${this.history.length}</p>${predBoxHtml}</div>`;
                 leftStats.innerHTML = leftStatsHtml;
             },
+
             renderTable() {
                 const wrapper = document.getElementById('table-wrapper');
                 if (this.history.length < 2) { wrapper.innerHTML = ''; return; }
+
                 const zeroCloseNums = [0, 2, 3, 4, 7, 12, 15, 17, 18, 19, 21, 25, 26, 28, 29, 32, 35];
+                
+                // Pre-calculate 1U Paroli P/L Data for each row
+                let paroliLog = [];
+                let algLvl = 1, remLvl = 1, zcLvl = 1;
+                let algCum = 0, remCum = 0, zcCum = 0;
+                
+                for (let i = 1; i < this.history.length; i++) {
+                    const p = this.history[i-1];
+                    const c = this.history[i];
+                    paroliLog[i] = {};
+                    
+                    // Fixed 0-Close Paroli
+                    let zcHit = zeroCloseNums.some(n => n === c.number);
+                    let zcProf = zcHit ? zcLvl : -zcLvl;
+                    zcCum += zcProf;
+                    paroliLog[i].zcStr = `<span class="${zcHit ? 'win' : 'loss'}">${zcProf > 0 ? '+' : ''}${zcProf}u</span><br><small style="color:#7f8c8d; font-size:0.85em;">Tot: ${zcCum > 0 ? '+' : ''}${zcCum}u</small>`;
+                    zcLvl = zcHit ? (zcLvl === 4 ? 1 : zcLvl * 2) : 1;
+
+                    if (p.predicted_numbers) {
+                        // Algorithm Paroli
+                        let algHit = p.predicted_numbers.some(n => n === c.number);
+                        let algProf = algHit ? algLvl : -algLvl;
+                        algCum += algProf;
+                        paroliLog[i].algStr = `<span class="${algHit ? 'win' : 'loss'}">${algProf > 0 ? '+' : ''}${algProf}u</span><br><small style="color:#7f8c8d; font-size:0.85em;">Tot: ${algCum > 0 ? '+' : ''}${algCum}u</small>`;
+                        algLvl = algHit ? (algLvl === 4 ? 1 : algLvl * 2) : 1;
+
+                        // Remaining Numbers Paroli
+                        const tRemNums = Array.from({length:37}, (_,k)=>k).filter(n=>!p.predicted_numbers.includes(n));
+                        let remHit = tRemNums.some(n => n === c.number);
+                        let remProf = remHit ? remLvl : -remLvl;
+                        remCum += remProf;
+                        paroliLog[i].remStr = `<span class="${remHit ? 'win' : 'loss'}">${remProf > 0 ? '+' : ''}${remProf}u</span><br><small style="color:#7f8c8d; font-size:0.85em;">Tot: ${remCum > 0 ? '+' : ''}${remCum}u</small>`;
+                        remLvl = remHit ? (remLvl === 4 ? 1 : remLvl * 2) : 1;
+                    } else {
+                        paroliLog[i].algStr = "-";
+                        paroliLog[i].remStr = "-";
+                    }
+                }
+
                 let rowsArray = [];
                 for (let i = 1; i < this.history.length; i++) {
                     const prev = this.history[i - 1], curr = this.history[i];
                     let tempMiss = 0, tempHit = 0, remMiss = 0, remHit = 0, zcMiss = 0, zcHit = 0;
+                    
                     for (let j = 1; j <= i; j++) {
                         const tC = this.history[j], tP = this.history[j-1];
                         if(zeroCloseNums.some(n=>n===tC.number)){zcHit++;zcMiss=0;}else{zcMiss++;zcHit=0;}
@@ -150,8 +193,7 @@
                             if(tRem.some(n=>n===tC.number)){remHit++;remMiss=0;}else{remMiss++;remHit=0;}
                         }
                     }
-                    const isAlgHit = prev.predicted_numbers ? prev.predicted_numbers.some(n=>n===curr.number) : false;
-                    const isZcHit = zeroCloseNums.some(n=>n===curr.number);
+                    
                     const renderCol = (nums, hitFn, isRem) => {
                         const dozenHtml = (label, range) => {
                             const dNums = nums.filter(range);
@@ -160,26 +202,83 @@
                         }
                         return `${dozenHtml('0', n => n === 0)}${dozenHtml('D1', n => n >= 1 && n <= 12)}${dozenHtml('D2', n => n >= 13 && n <= 24)}${dozenHtml('D3', n => n >= 25 && n <= 36)}`;
                     };
+                    
                     const algHtml = prev.predicted_numbers ? `<div class='small-preds' style="text-align:left;">${renderCol(prev.predicted_numbers, n=>n===curr.number, false)}</div>` + (tempMiss>=3?`<span class='miss-warning'>⚠️ Miss ${tempMiss}!</span>`:'') + (tempHit>=3?`<span class='hit-warning'>🔥 Hit ${tempHit}!</span>`:'') : '-';
                     const remNums = prev.predicted_numbers ? Array.from({length:37},(_,k)=>k).filter(n=>!prev.predicted_numbers.includes(n)) : [];
                     const remHtml = remNums.length > 0 ? `<div class='small-preds' style="text-align:left;">${renderCol(remNums, n=>n===curr.number, true)}</div>` + (remMiss>=3?`<span class='miss-warning'>⚠️ Miss ${remMiss}!</span>`:'') + (remHit>=3?`<span class='hit-warning'>🔥 Hit ${remHit}!</span>`:'') : '-';
                     const zcHtml = `<div class='small-preds' style="text-align:left;">${renderCol(zeroCloseNums, n=>n===curr.number, false)}</div>` + (zcMiss>=3?`<span class='miss-warning'>⚠️ Miss ${zcMiss}!</span>`:'') + (zcHit>=3?`<span class='hit-warning'>🔥 Hit ${zcHit}!</span>`:'');
-                    rowsArray.push(`<tr><td><span class='sno'>${i}</span></td><td>${prev.number}→<b>${curr.number}</b></td><td class="${tempMiss>=3?'warning-cell':tempHit>=3?'hit-streak-cell':''}">${algHtml}</td><td class="${remMiss>=3?'warning-cell':remHit>=3?'hit-streak-cell':''}">${remHtml}</td><td class="${zcMiss>=3?'warning-cell':zcHit>=3?'hit-streak-cell':''}">${zcHtml}</td><td>${isZcHit?'✅':'❌'}</td><td>${isAlgHit?'✅':'❌'}</td></tr>`);
+                    
+                    let predTdClass = tempMiss >= 3 ? 'warning-cell' : (tempHit >= 3 ? 'hit-streak-cell' : '');
+                    let remTdClass = remMiss >= 3 ? 'warning-cell' : (remHit >= 3 ? 'hit-streak-cell' : '');
+                    let zcTdClass = zcMiss >= 3 ? 'warning-cell' : (zcHit >= 3 ? 'hit-streak-cell' : '');
+                    
+                    rowsArray.push(`
+                        <tr>
+                            <td><span class='sno'>${i}</span></td>
+                            <td>${prev.number} → <b>${curr.number}</b></td>
+                            <td class="${predTdClass}">${algHtml}</td>
+                            <td style="background-color: #fafafa; line-height: 1.4;">${paroliLog[i].algStr}</td>
+                            <td class="${remTdClass}">${remHtml}</td>
+                            <td style="background-color: #fafafa; line-height: 1.4;">${paroliLog[i].remStr}</td>
+                            <td class="${zcTdClass}">${zcHtml}</td>
+                            <td style="background-color: #fafafa; line-height: 1.4;">${paroliLog[i].zcStr}</td>
+                        </tr>
+                    `);
                 }
-                wrapper.innerHTML = `<section class="table-container"><h3>Prediction History Log</h3><table><thead><tr><th>Round</th><th>Spin</th><th>Algorithm Pred.</th><th>Remaining Nums.</th><th>Fixed 0-Close</th><th>0-Close Result</th><th>Alg. Outcome</th></tr></thead><tbody>${rowsArray.reverse().join('')}</tbody></table></section>`;
+                
+                // NO MORE RECALC BUTTON COLUMN!
+                wrapper.innerHTML = `
+                    <section class="table-container">
+                        <h3>Prediction History Log</h3>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Round</th>
+                                    <th>Spin Result</th>
+                                    <th>Algorithm Predictions</th>
+                                    <th>Alg P/L</th>
+                                    <th>Remaining Nums.</th>
+                                    <th>Rem P/L</th>
+                                    <th>Fixed 0-Close</th>
+                                    <th>0-Close P/L</th>
+                                </tr>
+                            </thead>
+                            <tbody>${rowsArray.reverse().join('')}</tbody>
+                        </table>
+                    </section>`;
             },
+            
             calculatePredictionStats() {
-                let alg = { hits: 0, misses: 0, currHit: 0, currMiss: 0, maxHit: 0, maxMiss: 0 };
-                let zc = { hits: 0, misses: 0, currHit: 0, currMiss: 0, maxHit: 0, maxMiss: 0 };
+                let alg = { hits: 0, misses: 0, currHit: 0, currMiss: 0, maxHit: 0, maxMiss: 0, units: 0, lvl: 1 };
+                let zc = { hits: 0, misses: 0, currHit: 0, currMiss: 0, maxHit: 0, maxMiss: 0, units: 0, lvl: 1 };
                 const zeroCloseNums = [0, 2, 3, 4, 7, 12, 15, 17, 18, 19, 21, 25, 26, 28, 29, 32, 35];
+                
                 if (this.history.length > 1) {
                     for (let i = 1; i < this.history.length; i++) {
                         const prev = this.history[i - 1], curr = this.history[i];
+                        
                         if (prev.predicted_numbers) {
-                            if (prev.predicted_numbers.some(n => n === curr.number)) { alg.hits++; alg.currHit++; alg.currMiss = 0; } else { alg.misses++; alg.currMiss++; alg.currHit = 0; }
+                            if (prev.predicted_numbers.some(n => n === curr.number)) { 
+                                alg.hits++; alg.currHit++; alg.currMiss = 0; 
+                                alg.units += alg.lvl;
+                                alg.lvl = alg.lvl === 4 ? 1 : alg.lvl * 2;
+                            } else { 
+                                alg.misses++; alg.currMiss++; alg.currHit = 0; 
+                                alg.units -= alg.lvl;
+                                alg.lvl = 1;
+                            }
                             alg.maxHit = Math.max(alg.maxHit, alg.currHit); alg.maxMiss = Math.max(alg.maxMiss, alg.currMiss);
                         }
-                        if (zeroCloseNums.some(n => n === curr.number)) { zc.hits++; zc.currHit++; zc.currMiss = 0; } else { zc.misses++; zc.currMiss++; zc.currHit = 0; }
+                        
+                        if (zeroCloseNums.some(n => n === curr.number)) { 
+                            zc.hits++; zc.currHit++; zc.currMiss = 0; 
+                            zc.units += zc.lvl;
+                            zc.lvl = zc.lvl === 4 ? 1 : zc.lvl * 2;
+                        } else { 
+                            zc.misses++; zc.currMiss++; zc.currHit = 0; 
+                            zc.units -= zc.lvl;
+                            zc.lvl = 1;
+                        }
                         zc.maxHit = Math.max(zc.maxHit, zc.currHit); zc.maxMiss = Math.max(zc.maxMiss, zc.currMiss);
                     }
                 }
@@ -187,6 +286,7 @@
                 zc.rate = (zc.hits + zc.misses) > 0 ? ((zc.hits / (zc.hits + zc.misses)) * 100).toFixed(1) : 0;
                 return { alg, zc };
             },
+
             renderChart() {
                 const chartWrapper = document.getElementById('chart-wrapper'); const emptyState = document.getElementById('chart-empty-state');
                 if (this.history.length < 2) { if(chartWrapper) chartWrapper.style.display = 'none'; if(emptyState) emptyState.style.display = 'block'; return; }
